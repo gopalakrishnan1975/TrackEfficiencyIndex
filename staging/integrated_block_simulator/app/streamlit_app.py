@@ -2,7 +2,6 @@ import os, sys
 from datetime import date
 import pandas as pd
 import streamlit as st
-import plotly.express as px
 
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path: sys.path.insert(0,ROOT)
@@ -74,10 +73,17 @@ if "result" in st.session_state:
     st.subheader("4. Completion status")
     st.dataframe(status,use_container_width=True)
     if not sched.empty:
-        st.subheader("5. Block / work Gantt")
-        g=sched.copy(); g["Start"]=pd.to_datetime("2026-01-01")+pd.to_timedelta(g.day,unit="D"); g["Finish"]=g.Start+pd.to_timedelta(1,unit="D")
-        fig=px.timeline(g,x_start="Start",x_end="Finish",y="work_id",color="work_type",hover_data=["from_km","to_km","block_minutes","network_block_footprint_min","shadow_credit_min","weighted_ea_min","goods_paths_accepted"])
-        fig.update_yaxes(autorange="reversed"); st.plotly_chart(fig,use_container_width=True)
+        st.subheader("5. Block / work programme")
+        g=sched.copy()
+        g["date"]=pd.to_datetime("2026-01-01")+pd.to_timedelta(g.day,unit="D")
+        st.dataframe(
+            g[["date","work_id","work_type","from_km","to_km","block_minutes","network_block_footprint_min","shadow_credit_min","weighted_ea_min","goods_paths_accepted"]],
+            use_container_width=True,
+        )
+        gantt_view=(g.assign(value=1)
+                      .pivot_table(index="date",columns="work_id",values="value",aggfunc="max",fill_value=0))
+        st.caption("Simple work-calendar view (Plotly removed to avoid dependency issues on Streamlit Cloud).")
+        st.bar_chart(gantt_view)
 
         st.subheader("6. System impacts")
         daily=sched.groupby("day",as_index=False).agg(network_block_footprint_min=("network_block_footprint_min","max"),shadow_credit_min=("shadow_credit_min","max"),weighted_ea_min=("weighted_ea_min","max"),goods_paths_accepted=("goods_paths_accepted","min"),goods_demand=("goods_demand","max"),unmet_goods=("unmet_goods","max"))
