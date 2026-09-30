@@ -1,0 +1,216 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=18mm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,longtable,array,xcolor,hyperref,graphicx,fancyhdr}
+\hypersetup{colorlinks=true,urlcolor=blue,linkcolor=blue}
+\pagestyle{fancy}\fancyhf{}\lhead{SC Division | BCM--HOBCM Maintenance Policy}\rhead{Synthetic study | 30 Sep 2026}\cfoot{\thepage}
+\sloppy
+\setlength{\emergencystretch}{3em}
+\setlength{\parskip}{5pt}\setlength{\parindent}{0pt}
+\newcommand{\warn}{\textcolor{red!65!black}{\bfseries MODEL ONLY -- NOT SPEED RELAXATION AUTHORITY}}
+\begin{document}
+\begin{center}
+{\LARGE \bfseries Joint BCM/HOBCM, Tamping, Stabilisation and Train-Capacity Scheduling}\\[4pt]
+{\large A configurable, safety-gated policy simulator for a 12-km section}\\[4pt]
+{\small 30 September 2026 | Revised technical working paper}
+\end{center}
+\noindent\fcolorbox{red!60!black}{red!4}{\parbox{0.96\linewidth}{\warn. All productivity, stage timing, track capacity and EA outcomes below are illustrative synthetic outputs, not field measurements. No algorithm may replace Engineering certification, authorised caution orders, machine working rules, traffic control or safe possession procedures.}}
+\section{Decision and scope}
+Maintain a 12-km section in 30 patches of 400 m using \textbf{either two conventional ballast cleaning machines (BCMs) or one high-output BCM (HOBCM)}, with one or two Duomatics and one or two dynamic track stabilisers (DTS/DGS). Desired operating service: 40 coaching paths/day at class ceiling 130 km/h plus at least 25 goods paths/day at class ceiling 60 km/h. These are \emph{requested train paths}, not guarantees of continuous travel at those speeds. Optionally enforce a coaching Engineering Allowance (EA) cap of 2 minutes/train. Possessions are 2.5, 3 or 4 hours on nominated days of a six-day workweek. Train movements and stage releases are explicitly scheduled.
+
+The \textbf{cutter is always removed from under the running track before a block is cleared}. The policy flag \texttt{retain\_cutter\_outside} represents keeping equipment outside the running track (on the cess, with requisite precautions) instead of taking it back to base. Separately, the scenario assumes the \emph{authorised work-spot speed} remains 30 km/h if retained versus 40 km/h otherwise. This speed distinction is a user-supplied test condition, \emph{not} an assertion that IRPWM automatically prescribes those two speeds based on equipment parking. IR track-machine guidance requires cutter removal, ballast and packing, and applicable inspection before traffic reopening [1].
+\section{Input assumptions and replaceable placeholders}
+\begin{center}\small
+\begin{tabular}{p{.42\linewidth}p{.49\linewidth}}\toprule
+Parameter & Base synthetic value / status\\\midrule
+Section, job units & 12 km; 30 independent 400-m patches; monotone start from one station\\
+Traffic & 40 coaching paths at 130 km/h; 25 goods paths at 60 km/h; MPS 130 km/h\\
+Block & 2.5/3/4 h when active; 6 workdays/week; unrestricted restoration-only working days selectable\\
+Conventional BCMs vs HOBCM & Two BCMs at 120 productive min / 400-m patch each vs one HOBCM at 73 min / patch (synthetic; replace)\\
+Machine transit & Maximum 40 km/h for BCM/HOBCM; other convoy machine transit also \emph{assumed} 40 km/h\\
+Station processing & 10 min dispatch + 10 min reception \emph{per utilised machine convoy}\\
+Cutter handling & Non-retained setup 15 min, retained-outside setup 6 min; removal from running track always 10 min, site cleanup always 5 min (assumed)\\
+Duomatic and DGS & 35 min / 400-m tamping pass; 15 min / DTS pass; initial same-block packing + DTS required in simulator\\
+Tamping/DTS schedule & Additional tamping on days 2, 5 and 8 or later as resources permit; last stage twice DTS, release-day eligibility also constrained by day and previous work\\
+Release thresholds & Initially 40 km/h (or scenario 30), 75 from day 6 following stage 2, 110 from day 8 following stage 3, 130 from day 10 following stage 3 and assumed clearance\\
+Capacity proxy & 6 min synthetic per-train separation; weighted single-resource occupation; \emph{not} signal section simulation\\
+BCM workday policy & Mon--Sat by default; Sunday no possession; specific daily overrides possible\\\bottomrule
+\end{tabular}\end{center}
+Actual speed relaxation must follow current IRPWM Table III as amended and all required work and certification. The day targets above approximate staged readiness, deliberately conservative in some cases; in particular they are \emph{not a substituted reading of Table III}. Manual references are in Sec.~\ref{sec:refs}.
+\section{Work-front location, handling and production}
+For work-front centre $x_i=(i-\tfrac12)\ell$ km and an occupied machine $m$ with job list $J_{mt}$, the required time within its traffic possession is
+\begin{equation}
+T^{\rm occ}_{mt}=10+10+\frac{120}{v_m}\max_{i\in J_{mt}}x_i +\sum_{i\in J_{mt}}\tau_{mi}+H_{mt},\qquad T^{\rm occ}_{mt}\le 60h_t.\label{eq:time}
+\end{equation}
+Here $v_{\rm BCM}=40$ km/h, and $H_{mt}=\tau^{\rm setup}(k_t)+10+5$ minutes for BCM/HOBCM or 0 for Duomatic/DGS. This is a conservative single-depot return-journey abstraction, not a complete train-consist routing simulation. Two machines working together can be assigned distinct patches during the same possession; traffic block-hours count the \emph{shared possession once}, while machine-hours sum individual machine occupations. For distance $x=11.8$ km, outward and homeward movement at 40 km/h together require 35.4 min, before dispatch/reception and worksite handling. For one 400-m BCM packet, 120 minutes productive work plus 50 minutes handling/dispatch at home end leaves insufficient time in a 2.5-h possession; the full 4-h possession may be usable, depending on distance, machine grouping and restoration demands.
+
+Keeping a cutter outside the running track can reduce synthetic next-day setup by 9 minutes, but cannot remove the mandatory cutter-extraction, site finishing or same-block initial tamping and stabilisation. A retained-workspot 30 km/h order is separately modelled for the affected 400-m patch, pending actual authorisation.
+\section{EA, class-specific speed and capacity}
+Let $v_c$ be the class maximum, $r_{it}$ the approved workspot speed, and $\ell_i=0.4$ km. The constant-speed EA approximation is
+\begin{equation}
+EA_{ct}=60\sum_i\ell_i\left[\frac{1}{\min(v_c,r_{it})}-\frac{1}{v_c}\right]_+,\quad
+E_t=40EA_{{\rm coach},t}+25EA_{{\rm goods},t}.\label{eq:ea}
+\end{equation}
+Units are minutes/train for $EA_{ct}$ and train-minutes/day for $E_t$. It neglects braking/acceleration overlap; the deployable model must replace the bracketed segment calculation with a linked speed-distance/TEI profile that includes train-length clearance, accelerations and proximity of restrictions.
+
+Define baseline travel $t_c^0=60L/v_c$, class-specific $t_{ct}=t_c^0+EA_{ct}$, and assumed per-train separation $s$. Then the \emph{fluid path proxy} is
+\begin{equation}
+Q_t^{\rm proxy}=\frac{1440-60h_t}{\{40[t_{{\rm coach},t}+s]+25[t_{{\rm goods},t}+s]\}/65},\qquad Q_t^{\rm proxy}\ge65.\label{eq:capacity}
+\end{equation}
+This proxy ignores absolute/automatic block details, direction, station platform constraints, headway heterogeneity and paths lost due to train conflict; \emph{never use it as certified sectional capacity}. A better exact model would impose train-event headways on a time-space diagram and test actual 40 + 25 paths. Speed restoration beyond 60 km/h benefits coaching but not the ideal constant-speed goods class, when all other governing restrictions are ignored.
+\section{Daily decisions, constraints and approximate DP}
+Daily action $a_t=(\mathrm{clean\_on}_t,h_t,k_t,n_{U,t},n_{G,t})$ includes cleaning days, one of $h_t\in\{0,2.5,3,4\}$ hours, retention choice, additional Duomatic (0/1) and additional DGS (0/1); the cleaning fleet choice (2 BCM or 1 HOBCM) is an outer scenario variable. Restoration activity can continue when new BCM cleaning is suspended. A patch state records release stage, day of cleaning, completed tamping/DTS passes and cutter/workspot authorisation; machine states record busy hours and site locations. Feasibility requires (i) Eq.~\ref{eq:time}, (ii) safe same-block initial restoration, (iii) work-stage precedence and day eligibility, (iv) authorised speed release, (v) supply for at least 65 paths according to the chosen capacity model, and optionally (vi) $EA_{{\rm coach},t}\le \bar{EA}$.
+
+For operating disruption weight $\alpha$, possession penalty $\beta$, additional plant cost $\zeta$, and unfinished work penalty $\Phi$, the Bellman recursion is
+\begin{equation}
+V_t(S)=\min_{a\in\mathcal A(S)}\left[\alpha E_t+\beta 60h_t+\zeta C(a_t)+\gamma\mathbb E[V_{t+1}(S')]\right],\quad V_{T+1}=\Phi(S_{T+1}).\label{eq:bellman}
+\end{equation}
+An implementable \emph{approximate} policy is restoration-first rolling-horizon scheduling: schedule due Duomatic/DGS passes, permit BCM starts only when full site work fits and optional EA cap remains satisfied, and screen the day against the 65-path proxy. Enumerate a grid of fleet/possession/retention decisions and expose the Pareto frontier in (completion day, booked block-hours, total daily EA, machine cost). This implementation is \textbf{a deterministic rolling-horizon heuristic with scenario enumeration, not a trained ADP value network}; an ADP upgrade can approximate $V_t$ by fitted value iteration or lookahead search on aggregated speed-state counts and fleet-position features.
+
+\section{Optimised block-days and block-spell decision (30 September update)}
+\textbf{New decision hierarchy.} The user first fixes deep-cleaning fleet (two BCMs or one HOBCM), Duomatics (\emph{one or two}), DGS (one or two), 40 coaching paths/day at 130 km/h and at least 25 goods paths/day at 60 km/h. The user then enters a maximum available block of 2.5, 3 or 4 h, an optional coaching EA cap (minutes/train), and the objective criterion. The optimiser \texttt{optimal\_block\_policy.py} searches combinations of available weekly BCM days (up to six), cleaning block duration, restoration-only spell duration, and the explicitly authorised work-spot restriction choice. Machine availability is \emph{fixed} within each search; adding a Duomatic is a distinct scenario, not a free action.
+
+\textbf{Operational outputs.} For each tested weekly rule, the simulator reports finish day, total shared traffic possession hours, machine-hours by fleet, cumulative class-weighted train-minutes lost through speed restriction, peak coach EA, and an indicative fluid capacity $Q_t^{\rm proxy}$. Let $N=40+25=65$. Report
+\begin{align}
+Q_t^{\rm proxy}&=\frac{1440-60h_t}{(40(t^0_C+EA_{C,t}+s)+25(t^0_G+EA_{G,t}+s))/65},\\
+\Delta Q_t&=Q_0^{\rm proxy}-Q_t^{\rm proxy},\quad \sigma_t=Q_t^{\rm proxy}-65,\\
+U_t^{\rm proxy}&=\max\{0,65-Q_t^{\rm proxy}\},\qquad
+K_t^{\rm proxy}=\min\{65,Q_t^{\rm proxy}\}.
+\end{align}
+Here $Q_0^{\rm proxy}$ is the no-block, no-TSR baseline, $\sigma_t$ is spare screening capacity (not a booked train), $U_t$ is modelled unmet demand, and $K_t$ is an indicative daily accommodated-path count. \textbf{These are a fractional fluid screening abstraction, not time-tabled or certified sectional paths.} Peak loss $\max_t \Delta Q_t$, minimum capacity $\min_t Q_t$, mean capacity, cumulative apparent loss $\sum_t \Delta Q_t$, and days with $U_t>0$ enter the outputs. The 65-path screen is a hard constraint in the model selection.
+
+\textbf{Optimization.} For configuration $f=(n_{BCM},n_{Duo},n_{DGS})$, demand $d=(40,25)$ and permissible possession maximum $B_{\max}$, the model searches a finite discrete policy family:
+\begin{align}
+\pi^*(f,d,B_{\max},\overline{EA})
+=\arg\min_{\pi\in\Pi}&\ (T_{\rm finish},H_{\rm block},\sum_t E_t)
+\quad\text{lexicographically},\\
+\text{s.t.}\quad &h_t\in\{0,2.5,3,4\},\quad h_t\le B_{\max},\\
+&EA_{C,t}\le \overline{EA}\text{ when a ceiling applies},\\
+&Q_t^{\rm proxy}\ge65,\quad \text{all process, work-window and safety constraints}.
+\end{align}
+Alternative supported criteria minimise block-hours first, minimise total train-minutes first, or apply an explicitly specified weighted objective. There is \emph{no implicit monetary cost advantage} from a second Duomatic; actual plant rental/availability can be added once supplied. This is a combinatorial search over weekly repeating templates with the embedded restoration-first dispatcher, not a globally solved dynamic programme over arbitrary daily plans. With a 12-km section represented as 30 indivisible 400-m patches, the current solver does not support a half-completed packet carried across successive days.
+
+\textbf{Illustrative comparison on a six-day week} (the search figures below are deterministic, synthetic, and rounded; restoration-only days may use a shorter block spell):
+\begin{center}\scriptsize\begin{tabular}{p{.40\linewidth}rrrr}\toprule
+Fixed fleet / constraint & Finish day & Block h & Peak coach EA & Min path proxy\\\midrule
+Two BCM, \textbf{two} Duomatic, one DGS; max 4 h, no EA cap & 26 & 75 & 4.559 & 68.19\\
+Two BCM, \textbf{one} Duomatic, one DGS; max 4 h, no EA cap & 35 & 112 & 4.009 & 69.84\\
+Two BCM, two Duomatic, one DGS; coach EA cap 2 min & 46 & 110 & 1.999 & 77.11\\
+Two BCM, one Duomatic, one DGS; coach EA cap 2 min & 47 & 131 & 1.999 & 77.11\\
+One HOBCM, two Duomatic, one DGS; max 4 h, no EA cap & 43 & 105 & 2.279 & 79.69\\
+\bottomrule\end{tabular}\end{center}
+The best template for the two-BCM, two-Duomatic scenario selects \textbf{4-hour cleaning possessions with 2.5-hour restoration-only possessions}, six possible BCM weekdays per week, and the assumed 40-km/h workspot restriction if independently certified. The fluid baseline is approximately 102.68 paths/day; the minimum of 68.19 corresponds to a peak 33.59\% drop in the \emph{capacity proxy} while preserving a 3.19-path screening margin above the requested 65. This should \emph{not} be interpreted as a certified 33.59\% reduction in actual sectional line capacity. Under the 2-min coach EA cap, the additional BCM starts are deferred and restoration-only work persists, lengthening completion.
+
+\textbf{Feasibility boundary.} With assumed cutter handling and 120 min/patch cleaning, a conventional BCM reaching $x=11.8$ km requires $120+10+10+15+10+5+2(60)(11.8)/40=205.4$ minutes for a fresh packet, exceeding a 3-hour spell; hence two-BCM cases restricted to 2.5/3 hours cannot fully complete every indivisible 400-m packet in this model. This is a \emph{model boundary}, not a finding that real-world working cannot progress in partial lengths or with altered cutter handling and machine output. Small blocks would require a fractional work-in-process extension.
+
+\textbf{User-controlled simulation.} Edit \texttt{optimization\_request.json}: select \texttt{fleet\_type} = \texttt{2BCM} or \texttt{HOBCM}; \texttt{duomatics} = 1 or 2; \texttt{dgs\_machines} = 1 or 2; \texttt{max\_block\_hours} = 2.5, 3 or 4; \texttt{coach\_EA\_cap\_min} = \texttt{null} or a number; traffic demand and speeds; \texttt{max\_workdays\_per\_week}; \texttt{objective}. Run \texttt{python optimal\_block\_policy.py optimization\_request.json}. The outputs are \texttt{optimized\_policy\_comparison.csv}, \texttt{optimized\_policy\_daily.csv}, \texttt{optimized\_policy\_patch\_milestones.csv}, \texttt{optimized\_policy\_summary.json} and \texttt{recommended\_action\_plan.json}. Feed the latter to \texttt{policy\_simulator.run(...)} for daily user-defined override studies. \texttt{search\_mode=exhaustive} tries all subsets of six available weekdays; \texttt{search\_mode=practical} tries contiguous and spaced weekday patterns for faster sensitivity screening.
+
+\textbf{Caution.} Two Duomatics can remove a simulated downstream queue, but may cost more and may be unavailable. All true signal clearances, block occupation diagrams, bidirectional meets, crossover constraints, train consist acceleration and IRPWM certification conditions must be independently checked before using a selected plan. The model's lexicographic policy is a \emph{conditional planning candidate}, not an unconditional railway operating recommendation.
+
+
+\section{Consolidated fresh execution and operational metrics (30 September 2026)}
+\textbf{Reproduction.} The updated \texttt{optimization\_request.json} was run using
+\texttt{python optimal\_block\_policy.py optimization\_request.json}. This is a full enumeration of repeating six-day weekly-block templates, followed by the deterministic worksite dispatcher. It is \emph{not} a solved optimal Bellman value function, not a stochastic ADP implementation, and not an actual station-by-station timetable simulation. The reported best is conditional on the enumerated templates and synthetic inputs.
+
+\begin{center}\small\begin{tabular}{lr}\toprule
+Measure & Fresh execution\\\midrule
+Weekly policy templates evaluated & 1134\\
+Feasible templates passing synthetic screening & 357\\
+Completion day (full 12 km at assumed MPS 130 km/h) & 26\\
+Shared booked traffic possessions & 75.0 hours\\
+BCM machine occupation, two machines combined & 94.0 hours\\
+Duomatic occupation, two machines combined & 99.64 hours\\
+DGS machine occupation, one machine & 52.53 hours\\
+Coaching EA, peak minutes per train & 4.559\\
+Total restriction losses, 40 coaching + 25 goods & 3745.0 train-minutes\\
+Minimum/mean fluid-path screening capacity & 68.19 / 78.73 paths per day\\
+Days below the target 65-path proxy & 0\\
+Unrestricted baseline fluid-path proxy & 102.68 paths per day\\
+\bottomrule\end{tabular}\end{center}
+
+\textbf{Work pattern and bottlenecks.} The selected policy runs the two BCMs in four-hour possessions and uses 2.5-hour spells when only tamping/stabilisation remains. BCM work can be assigned on up to six days/week. Cutting is allowed only if the machine can return, the cutter can be removed from beneath the running track, and the same-possession initial packing and stabilisation can be scheduled. \emph{The physical cutter's permission to remain outside the running track and the subsequent 30/40-km/h speed order are separate decisions.} Current code permits either workspot scenario only as a hypothetical authorisation, and chooses 40 km/h if feasible and beneficial.
+
+\textbf{Patch-stage elapsed times.} Across 30 synthetic 400-metre jobs, mean elapsed calendar days (counting start day) are 6.2 to 75 km/h, 8 to 110 km/h, and 10 to 130 km/h. These figures depend on machine queues as well as stage readiness. The counts represent model calendar days, not speed certificates; actual IRPWM inspections, track condition, ballast profile and other prerequisites govern release.
+
+\textbf{Actual machine production versus allocated possession.} The 75 booked block-hours comprise 15 cleaning-plus-restoration possession days and 6 restoration-only possession days in the selected run. Machine-hours account for dispatch/reception and assumed movement, setup, production, cutter removal and cleanup separately per machine. They can exceed or fall below booked shared block-hours because multiple machines use a single possession. The effective machine occupancy for a day's furthest work centre $x$ km obeys:
+\begin{equation}
+\sum_{j\in J_{m,t}}p_{m,j} + 20 + \frac{120x}{40} + H_{m,t}\le 60h_t,
+\qquad H_{{\rm BCM},t}=\tau_{\rm insert}(k_t)+10+5.
+\end{equation}
+Thus at $x=11.8$ km, the round-trip transit component is 35.4 minutes at 40 km/h. With a fresh 15-minute setup and 120-minute synthetic BCM cut, the full 400-m job requires 205.4 minutes before extra contingencies: feasible in a four-hour block but not three hours in this indivisible-packet model. The constraint is more stringent than a uniform kilometres-per-day productivity assumption.
+
+\subsection{Rechecked fixed-resource sensitivity scenarios}
+\begin{center}\scriptsize\begin{tabular}{p{.43\linewidth}rrrr}\toprule
+Fixed fleet, max 4-hour block & Finish day & Block h & Peak coach EA & Min $Q^{\rm proxy}$\\\midrule
+2 BCM, 2 Duomatic, 1 DGS; no EA cap & 26 & 75 & 4.559 & 68.19\\
+2 BCM, 1 Duomatic, 1 DGS; no EA cap & 35 & 112 & 4.009 & 69.84\\
+2 BCM, 2 Duomatic, 1 DGS; EA cap 2 min & 46 & 110 & 1.999 & 77.11\\
+2 BCM, 1 Duomatic, 1 DGS; EA cap 2 min & 47 & 131 & 1.999 & 77.11\\
+1 HOBCM, 2 Duomatic, 1 DGS; no EA cap & 43 & 105 & 2.279 & 79.69\\
+2 BCM, 2 Duomatic, 2 DGS; no EA cap & 26 & 75 & 4.559 & 68.19\\
+\bottomrule\end{tabular}\end{center}
+The default row used exhaustive search of 1,134 weekly templates; the other rows were \emph{rerun for this revision} using a smaller practical template subset (216 per configuration). They are not directly comparable as proofs of each scenario's global optimum. A second Duomatic shortens the illustrative default run, whereas a second DGS shows no benefit with these current work/output assumptions. Other objectives, machine costs and input productivities can reverse these conclusions.
+
+\textbf{EA ceiling and restoration-only days.} When the class-specific coaching EA ceiling is 2 minutes, the scheduler tests any proposed BCM start against that threshold. It delays new BCM packets when starting would breach the cap but can use independent restoration-only blocks on eligible days to clear outstanding work. Report the resulting extra completion time and block-hour consumption, \emph{not} an instruction to override Engineering restrictions.
+
+\textbf{Capacity interpretation.} The no-block/no-TSR proxy is approximately 102.68 paths/day, and the minimum during the default run is 68.19 against a 65-path demand. The apparent 3.19-path minimum slack may disappear with realistic signal separation, platform/yard restrictions, directional working, speed-envelope effects, unreliable running times and timetable demand peaks. The estimated worst proxy reduction is 33.59\%, \emph{not} a certified loss of actual sectional line capacity. For a real implementation, replace the proxy with time-space event scheduling and enforce 40 passenger + 25 freight paths per day as separate hard constraints.
+
+\subsection{Interpretation of IRPWM schedule and certification}
+IRPWM 2020, Paragraph 637(2), replacement Table III under Correction Slip 18 dated 15 March 2024 contains a mechanised BCM/Tamping/DTS sequence, with nominal 40 km/h on initial stages, 75 km/h on day 6/7, 110 km/h on the eighth day and 130 km/h on the tenth day after specified work and inspections. The statutory schedule allows longer consolidation as site conditions require. The current code uses approximate age thresholds plus counted Duomatic/DTS work; \emph{it does not simulate inspection records, full ballast-profile certification, footplate/last-vehicle clearance or other engineering release gates}. Its stage milestones must not be treated as automatic permission to raise speed. This regulatory modelling gap is explicitly reserved for a future authoritative release-state module.
+
+\subsection{Policy interface, scope of optimality and next version}
+The file \texttt{optimization\_request.json} fixes (1) two conventional BCMs versus one synthetic HOBCM, (2) one versus two Duomatics, (3) one versus two DTS/DGS units, (4) 40 coaching trains at 130 km/h and 25 goods trains at 60 km/h, (5) the 12-km section, (6) maximum daily possession 2.5, 3 or 4 hours, (7) optional numerical coaching EA cap, and (8) lexicographic or weighted objective. The model selects allowable weekly BCM days, four-hour or shorter cleaning/remaining-work possessions, and the authorised 30/40 workspot option. The \texttt{recommended\_action\_plan.json} and daily CSVs contain the simulated action schedule.
+
+A stronger next-generation policy model is a \emph{resource-constrained stochastic semi-Markov decision process}: states include patch-specific age, stage and authorised speed, in-progress fractional work, machine location and failure risk, traffic demand and work windows. Actions choose crew/machine assignments, specific patch coordinates, possession start/end times, and workspot protection/clearance; transition probabilities represent unexpected possession loss, consolidation and resource failures. Approximate dynamic programming can use lookahead mixed-integer programming or fitted value iteration, with a timetable feasibility oracle, while keeping Engineering safety requirements as non-negotiable constraints.
+
+\section{What must be validated before use}
+\begin{enumerate}\item Actual BCM and HOBCM outputs at the proposed ballast depth, cutter location, and gradient; HOBCM train length and operational limits.
+\item True machine-consist dispatch and reception times; turnout routing, traffic interfaces, transit gradients, and worksite/machine setup requirements.
+\item Correct IRPWM stages and dated corrections, certified residual 30/40-km/h orders, applicable inspections, LWR precautions and track consolidation rates.
+\item DUO and DTS machine availability, actual pass times and stage precedence, BRM and ballast availability, and simultaneous possession rules.
+\item Actual signal headways, directional train timetable, station capacity, average coach/goods acceleration and train lengths; do not rely on Eq.~\ref{eq:capacity} for line capacity clearance.
+\item Define money/time tradeoff and weights $\alpha,\beta,\zeta$ before claiming a cost-optimal policy.
+\end{enumerate}
+
+\section{Integrated Major-Work Block Planning Policy (Staging v2)}
+The planning problem is expanded from a BCM-only workfront to an integrated section-level major-work programme. The scheduler shall accept, at minimum, \textbf{BCM--Plain Track, BCM--Point Machine locations, CTR/Primary through PQRS, CTR/Primary through TRT, TRR, Through Tamping and Crossovers}. Each work item is represented by work ID, section, direction, chainage limits, priority, earliest permissible start date, latest required finish date, PSR, requested block spell, caution-order speed, production rate and a continuity flag. These engineering inputs are planning parameters and must be replaced by current authorised values before field use.
+
+\subsection{Work-front continuity rule}
+For a designated continuous major work $w$, let $x_w^0$ be the start km, $x_w^1$ the end km and $p_{w,t}$ the cumulative completed length at the end of day $t$. Once such a work is started, the policy imposes
+\begin{equation}
+ y_{w,t}=1 \Rightarrow y_{w,t+1}=1 \quad \text{until }p_{w,t}\ge |x_w^1-x_w^0|,
+\end{equation}
+for every eligible planning day. Thus, for example, a BCM--Plain Track campaign is not voluntarily stopped in the middle of its nominated km range to begin another major work. Any interruption caused by a non-available traffic window, machine failure, safety restriction or another non-negotiable constraint must be recorded as an exception rather than silently treated as normal optimisation freedom. This continuity rule is a key policy requirement and materially changes the scheduling problem from independent daily job selection to a sequence-dependent campaign scheduler.
+
+\subsection{Section and timetable inputs}
+The official shall enter the section PSR and upload a train timetable with, as a minimum, train ID, train class, section, direction, sectional entry/exit time and train speed ceiling. The planner will intersect each active caution-order site with every train traversing that section. For a train $r$ with governing speed $v_r$ and a caution-order length $\ell$ at speed $v_c$, the first-stage EA approximation is
+\begin{equation}
+ EA_r=60\ell\left(\frac{1}{\min(v_r,v_c)}-\frac{1}{\min(v_r,v_{PSR})}\right)_+.
+\end{equation}
+This must be upgraded for production use to include train length, braking, acceleration and overlapping restrictions; however, train-wise EA is already superior to a single class-average allowance because it is generated directly from the timetable rows.
+
+\subsection{Capacity and goods-path impact}
+The staging engine reports both block duration and the extra running time imposed on each goods train. A simple screening loss is obtained by dividing block minutes plus goods EA minutes by an assumed planning headway. The corresponding estimated goods paths are explicitly labelled a \emph{screening proxy}. The production system should instead use a time--space train graph or event-scheduling oracle and count the maximum goods paths insertable after preserving nominated passenger paths, station constraints, directional conflicts, signal headways and block windows.
+
+\subsection{Date-window, priority and resource policy}
+A work item is eligible only on or after its earliest-start date. Among eligible campaigns that have not started, lower numerical priority is preferred and latest-finish proximity is the secondary urgency measure. Once a continuous campaign begins, continuity takes precedence over opening another workfront. Future versions should add explicit machine fleets (BCM, PQRS, TRT, Duomatic, DGS, rail-relaying consist, crossover gang), simultaneous-block compatibility, crew/base constraints and sectional possession calendars. The optimisation objective should be multi-criteria: statutory/safety feasibility first, latest-finish compliance second, continuity of active campaigns third, then minimisation of passenger EA, goods-path loss and total block hours.
+
+\subsection{Gantt and operating outputs}
+The staging Streamlit interface generates (i) a Gantt/block calendar, (ii) a day-wise table of block hours and workfront chainage, (iii) train-wise EA, (iv) an indicative goods-path impact and (v) completion status against each major work. The display is intentionally split between Engineering work progress and Operating impact so that a planner can see when a high-priority campaign creates unacceptable cumulative restrictions. The Gantt chart is a planning visualisation, not a traffic block order.
+
+\subsection{Software architecture and current staging limitations}
+The proposed v2 code separates a catalogue of major work types, a continuity-aware scheduler, a timetable EA calculator and a Streamlit front end. Current production rates, default caution speeds and block spells are editable placeholders. The present heuristic allows one or more major blocks per day but does not yet solve a mixed-integer or dynamic programme for exact block start times. It also does not yet model partial possession windows around individual trains, machine failure probabilities, cyclic maintenance, LWR restrictions, S\&T/traction isolations, point-machine disconnection time, crossover-specific route locking, turnout speed envelopes or the formal Engineering sequence for every listed work type. These gaps must be closed before field deployment.
+
+\subsection{Recommended next optimisation formulation}
+Let $w$ index major works, $d$ days and $b$ candidate block windows. Binary $z_{wdb}$ activates work $w$ in window $b$; continuous $q_{wd}$ is completed chainage; $e_{rd}$ is train-specific EA; and $g_d$ is goods-path capacity. The planning objective may be written
+\begin{equation}
+ \min \sum_d\left(\alpha\sum_r e_{rd}+\beta\,\mathrm{BlockMin}_d+\gamma\,\mathrm{GoodsPathLoss}_d\right)+\sum_w \eta_w\,\mathrm{Tardiness}_w,
+\end{equation}
+subject to machine/resource exclusivity, timetable block feasibility, earliest/latest dates, PSR/caution-order logic, work precedence and the campaign-continuity constraint. This creates a suitable foundation for a MILP/CP-SAT rolling-horizon planner, with the existing simulation retained as a fast scenario evaluator and audit layer.
+
+\section{Sources}\label{sec:refs}
+\begin{enumerate}
+\item Indian Railways Track Machine Manual, IRICEN hosted edition, BCM after-working and cutter-bar removal provisions: \url{https://iricen.gov.in/iricen/Track_Manuals/IRTMM.pdf}.
+\item Indian Railways Permanent Way Manual (2020), Para 637(2), Table III, as amended by Correction Slip No. 18 dated 15 Mar 2024 (cross-check current controlling instructions before action): \url{https://engineeringpway.blogspot.com/2024/03/correction-slip-no18-to-indian-railways.html}.
+\item IRICEN research paper on actual HOBCM equipment capacity and constraints, for context only (not used as a measured input): \url{https://iricen.gov.in/iricen/ipwe_seminar/2017/Feb%202023%20Vol-2/Performance%20Analysis%20and%20Improvements%20on%20High%20Output%20Ballast%20Cleaning%20Machine%20%28HOBCM%29%20Over%20Western%20Railway.pdf}.
+\end{enumerate}
+\end{document}
