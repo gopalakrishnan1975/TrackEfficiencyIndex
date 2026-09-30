@@ -1,15 +1,17 @@
-"""BCM / Duomatic Policy Lab — synthetic research interface."""
+"""BCM Block Planner — interactive synthetic maintenance policy simulator."""
 import json
 import pandas as pd
 import streamlit as st
 from web_optimizer import optimize
 
-st.set_page_config(page_title="BCM / Duomatic Policy Lab", page_icon="🚆", layout="wide")
-st.title("BCM–Duomatic Block Policy Lab")
+st.set_page_config(page_title="BCM Block Planner", page_icon="🚆", layout="wide", initial_sidebar_state="collapsed")
+st.title("BCM Block Planner")
+st.markdown("### Enter your operating inputs")
+st.write("Set the available machines, traffic demand, block policy, and Engineering Allowance below. On phones, all controls appear on this page; the sidebar is not required.")
 st.warning("Research demonstration only. Synthetic speeds, workloads, stage dates and line capacity are not operational authority.")
 st.caption("Cutter bar is removed from the running track. The 30/40 km/h workspot restriction is separately authorised.")
 
-with st.sidebar:
+with st.form("planner_inputs", clear_on_submit=False):
     st.header("Fleet")
     fleet = st.selectbox("Ballast cleaning", ["2BCM", "HOBCM"], format_func=lambda x: "Two conventional BCMs" if x == "2BCM" else "One high-output BCM")
     duomatics = st.radio("Duomatics", [1, 2], horizontal=True)
@@ -29,12 +31,13 @@ with st.sidebar:
     ea = st.number_input("EA ceiling (minutes/train)", min_value=0.1, max_value=30.0, value=5.0, step=0.5, disabled=not limit)
     objective = st.selectbox("Optimisation objective", ["min_block_hours", "finish_then_block_then_delay", "min_total_train_minutes"],
         format_func=lambda v: {"min_block_hours": "Minimum booked block-hours", "finish_then_block_then_delay": "Earliest full restoration", "min_total_train_minutes": "Minimum train-minutes lost"}[v])
+    submitted = st.form_submit_button("Optimise block policy", type="primary", use_container_width=True)
 
 @st.cache_data(show_spinner=False)
 def solve(parameters):
     return optimize(json.loads(parameters))
 
-if st.button("Optimise available fleet", type="primary", use_container_width=True):
+if submitted:
     if not spots:
         st.error("Choose an authorised workspot speed.")
         st.stop()
@@ -85,7 +88,7 @@ if "run" in st.session_state:
     st.dataframe(comparison_df, use_container_width=True)
     st.download_button("Policy search CSV", comparison_df.to_csv(index=False), file_name="policy_search.csv")
 else:
-    st.info("Set your resources and operating limits in the sidebar and run the optimisation.")
+    st.info("Enter your inputs in the form above, then select Optimise block policy.")
 
 with st.expander("Model limitations"):
     st.write("Finite weekly-template search, not exact DP. A 400 m BCM patch must fit into a single possession; work carry-over is not implemented. Speed stages are synthetic, not automatic IRPWM authorisation. Machine movements use a simplified station-endpoint rule, and the capacity proxy excludes train-graph and signalling interactions.")
