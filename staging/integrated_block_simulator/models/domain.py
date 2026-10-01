@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 @dataclass
 class WorkSite:
@@ -31,8 +31,12 @@ class MachinePool:
 @dataclass
 class PlannerPolicy:
     max_weighted_ea_min_per_day: float = 250.0
+    min_passenger_trains_per_day: int = 36
     min_goods_paths_per_day: int = 20
+    passenger_speed_kph: float = 110.0
+    goods_speed_kph: float = 60.0
     max_passenger_cancellations_per_day: int = 0
     max_block_minutes_per_day: int = 240
+    max_concurrent_works: int = 2
     allow_shadow_parallelism: bool = True
     objective: str = "min_makespan"
