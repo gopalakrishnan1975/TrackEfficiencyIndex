@@ -1,13 +1,24 @@
 import pandas as pd
 
-def synthetic_timetable() -> pd.DataFrame:
+def synthetic_timetable(passenger_count:int=40, goods_count:int=30,
+                        passenger_speed_kph:float=110.0, goods_speed_kph:float=60.0) -> pd.DataFrame:
+    """Synthetic placeholder timetable for UI experiments."""
     rows=[]
-    for i in range(40):
-        enter=300+i*25
-        rows.append({"train_id":f"P{i+1:03d}","train_class":"Coaching","section":"A-B","direction":"UP" if i%2==0 else "DOWN","enter_min":enter%1440,"exit_min":(enter+30)%1440,"max_speed_kph":130,"weight":1.0,"synthetic":True})
-    for i in range(30):
-        enter=330+i*35
-        rows.append({"train_id":f"G{i+1:03d}","train_class":"Goods","section":"A-B","direction":"UP" if i%2==0 else "DOWN","enter_min":enter%1440,"exit_min":(enter+55)%1440,"max_speed_kph":60,"weight":0.35,"synthetic":True})
+    pcount=max(0,int(passenger_count)); gcount=max(0,int(goods_count))
+    pstep=max(1, int(1080/max(1,pcount)))
+    gstep=max(1, int(1080/max(1,gcount)))
+    for i in range(pcount):
+        enter=(240+i*pstep)%1440
+        rows.append({"train_id":f"P{i+1:03d}","train_class":"Coaching","section":"A-B",
+                     "direction":"UP" if i%2==0 else "DOWN","enter_min":enter,
+                     "exit_min":(enter+30)%1440,"max_speed_kph":float(passenger_speed_kph),
+                     "weight":1.0,"synthetic":True})
+    for i in range(gcount):
+        enter=(300+i*gstep)%1440
+        rows.append({"train_id":f"G{i+1:03d}","train_class":"Goods","section":"A-B",
+                     "direction":"UP" if i%2==0 else "DOWN","enter_min":enter,
+                     "exit_min":(enter+55)%1440,"max_speed_kph":float(goods_speed_kph),
+                     "weight":0.35,"synthetic":True})
     return pd.DataFrame(rows)
 
 def validate_timetable(df: pd.DataFrame) -> pd.DataFrame:
